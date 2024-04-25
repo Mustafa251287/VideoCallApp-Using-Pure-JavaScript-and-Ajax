@@ -1,0 +1,437 @@
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+.b {
+height:40px;
+width:70px;
+border:dotted 1px #ffffff;
+position:relative;
+border-radius:10px;
+color:rgb(255,255,255);
+background-color:inherit;
+}
+
+h3 {
+border:dotted 1px #ffffff;
+text-align:center;
+border-radius:10px;
+color:rgb(255,255,255);
+
+}
+
+#pc1 {
+left:2vw;
+}
+
+#pc2 {
+left:50vw;
+}
+
+#hang {
+width:30vw;
+left:3vw;
+}
+
+
+body {
+position:relative;
+height:100vh;
+width:100vw;
+background-color:rgb(60,60,60);
+}
+
+#tst {
+color:rgb(255,255,255);
+}
+
+.v {
+position:relative;
+
+}
+
+#localvid {
+
+height:17vh;
+width:36vw;
+left:30vw;
+top:2vh;
+}
+
+#myvid {
+transform: rotateY(180deg);
+height:45vh;
+width:100vw;
+}
+
+#vidchange {
+    left:32vw;
+    width:30vw;
+}
+</style>
+</head>
+<body>
+<h3 id="h">WebRtc Example</h3><br>
+<button class="b" id="pc1">Start</button>
+<button class="b" id="pc2">Call</button>
+<p id="tst" class="para">hello</p>
+<video class="v" id="myvid" controls></video>
+<video class="v" id="localvid" controls></video>
+<br><br><button id="hang" class="b">Hang Up</button>
+<button class="b" id="vidchange">Change Cam</button>
+<script>
+const iceConfiguration = {};
+iceConfiguration.iceServers = [ { urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:stun3.l.google.com:19302' }, { urls: 'stun:stun4.l.google.com:19302' } ];
+
+
+var chcam=document.getElementById("vidchange");
+var sercanarr=[];
+var clicanarr=[];
+var i=0;
+var stream;
+var mylocal=document.getElementById("localvid");
+mylocal.style.transform="rotateY(180deg)";
+var vid=document.getElementById("myvid");
+mylocal.onloadedmetadata=()=>{
+mylocal.play();
+}
+
+vid.onloadedmetadata=()=>{
+vid.play();
+}
+
+chcam.onclick=async e=>{
+    try {
+        var tr=stream.getTracks();
+    
+      
+        
+for(var f in tr){
+    
+            tr[f].stop();
+        }
+        
+        
+        var temp=await chvid();
+        var newtr=temp.getTracks();
+        var vidtr;
+        
+        if(newtr[0].kind=="video"){
+            vidtr=newtr[0];
+        } else {
+            vidtr=newtr[1];
+        }
+       
+       
+       
+      
+        if(ser || cli){
+            if(ser){
+                var sarr=ser.getSenders();
+                if(sarr[0].track.kind=="video"){
+            sarr[0].replaceTrack(vidtr);
+                } else {
+                    sarr[1].replaceTrack(vidtr);
+                }
+                
+           
+            } else if(cli){
+                var sarr=cli.getSenders();
+           
+           
+if(sarr[0].track.kind=="video"){
+            sarr[0].replaceTrack(vidtr);
+                } else {
+                    sarr[1].replaceTrack(vidtr);
+                    
+            }
+            
+        }
+        }
+        
+        
+        stream=temp;
+        
+        
+        //stream=await chvid();
+mylocal.srcObject=temp;
+mylocal.volume=0.0;
+    } catch(err){
+        alert(err);
+    }
+};
+var timer;
+var myp=document.getElementById("tst");
+chastat("");
+var but1,but2,hangbut;
+
+var constraints={video:{
+    facingMode:"user", 
+    },audio:true};
+var offer,answer;
+but1=document.getElementById("pc1");
+but2=document.getElementById("pc2");
+but2.disabled=true;
+var url="https://anawesomedeveloper.000webhostapp.com/test.php";
+but1.onclick=async e=>{
+try {
+if(stream){
+return;
+}
+//constraints.video.facingMode="environment";
+
+stream=await navigator.mediaDevices.getUserMedia(constraints);
+mylocal.srcObject=stream;
+mylocal.volume=0.0;
+but2.disabled=false;
+}catch(err){
+chastat(err.toString());
+}
+
+
+}
+but2.onclick=call;
+var ser,cli;
+const offerOptions = {
+  offerToReceiveAudio: 1,
+  offerToReceiveVideo: 1,
+  
+};
+hangbut=document.getElementById("hang");
+
+async function call(e){
+var s="q=checkoffer";
+var res=await sendtoserver(url,s);
+
+if(res=="n"){
+
+console.log("Successfully captured stream "+stream);
+ser=new RTCPeerConnection(iceConfiguration);
+chastat("Call Initiated");
+stream.getTracks().forEach(track => ser.addTrack(track, stream));
+ser.ontrack=e=>{
+vid.srcObject=e.streams[0];
+}
+ser.onicecandidate=e=>{
+  //console.log("On ice candidate event called by server ");
+if(e.candidate){
+sercanarr.push(JSON.stringify(e.candidate));  
+    } else {
+    setcandidate(JSON.stringify(sercanarr),ser);
+    }
+
+
+}
+console.log("Server's RTCPeerConnection Created");
+offer=await ser.createOffer(offerOptions);
+
+console.log("offer Created successfully "+offer);
+
+console.log(await sendtoserver(url,"q=createoffer&o="+strencode(offer.sdp)));
+try {
+
+ser.setLocalDescription(offer);
+console.log("successfully set Local description of server");
+} catch(err){
+console.log("Theres some error in setting local description of server "+err.toString());
+}
+checkanswer();
+} else {
+cli=new RTCPeerConnection(iceConfiguration);
+chastat("Calling In progress");
+stream.getTracks().forEach(track => cli.addTrack(track, stream));
+cli.ontrack=e=>{
+vid.srcObject=e.streams[0];
+}
+cli.onicecandidate=e=>{
+//console.log("On ice candidate event called in client ");
+if(e.candidate){
+clicanarr.push(JSON.stringify(e.candidate));
+ } else {
+ setcandidate(JSON.stringify(clicanarr),cli);
+ }
+
+
+}
+console.log("client peer connection created succesafully");
+var u="https://anawesomedeveloper.000webhostapp.com/offer.txt";
+var o=await sendtoserver(u,"");
+console.log("Got offer from server");
+
+var remotedes=new RTCSessionDescription();
+
+remotedes.type="offer";
+remotedes.sdp=o;
+
+
+
+cli.setRemoteDescription(remotedes,()=>{
+console.log("Successfully set remote description of client");
+answer=cli.createAnswer(myanswer=>{
+console.log("Successfully created answer from client");
+cli.setLocalDescription(myanswer);
+console.log("Successfully set local description of client");
+setanswer(myanswer.sdp);
+checkcandidate(cli);
+
+},e=>{
+console.log("There is some error in creating answer fron client");
+});
+
+
+
+
+},e=>{
+console.log("There is some error in setting remote description of client "+e.toString());
+myp.innerHTML=o;
+mypp.innerHTML=offer.sdp;
+
+
+
+});
+//console.log("Successfully set Remote Description of client");
+}
+
+}
+
+async function checkanswer(){
+var ar=await sendtoserver(url,"q=checkanswer");
+
+if(ar=="y"){
+var turl="https://anawesomedeveloper.000webhostapp.com/answer.txt";
+var ans=await sendtoserver(turl,"");
+
+try {
+
+var a=new RTCSessionDescription();
+a.type="answer";
+a.sdp=ans;
+ser.setRemoteDescription(a);
+console.log("Successfully set remote description of server");
+checkcandidate(ser);
+} catch(err){
+console.log("there some error "+err.toString());
+}
+
+
+} else {
+   timer=setTimeout(checkanswer,5000);
+  // alert("I m calling");
+}
+
+
+}
+
+
+function sendtoserver(url,str){
+
+return new Promise(function(resolve,reject){
+var xhttp=new XMLHttpRequest();
+
+xhttp.onload=function(){
+
+resolve(this.responseText);
+}
+xhttp.open("POST",url,true);
+xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+xhttp.send(str);
+
+});
+
+}
+
+
+
+hangbut.onclick=async e=>{
+if(ser){
+ser.close();
+}
+
+if(cli){
+cli.close();
+}
+
+var rr=await sendtoserver(url,"q=clr");
+chastat("Call Ended Successfully");
+console.log("Deleted files "+rr);
+}
+
+
+async function setanswer(anssdp){
+console.log(await sendtoserver(url,"q=createanswer&a="+strencode(anssdp)));
+}
+
+
+function strencode(str){
+return JSON.stringify(str.split("+"));
+}
+
+
+async function setcandidate(candidate,pc){
+if(pc==ser){
+console.log(await sendtoserver(url,"q=createsercandidate&sc="+candidate));
+} else if(pc==cli){
+console.log(await sendtoserver(url,"q=createclicandidate&cc="+candidate));
+}
+}
+
+async function checkcandidate(pc){
+if(pc==ser){
+  var result=await sendtoserver(url,"q=checkclicandidate");
+  if(result=="y"){
+  var arr=JSON.parse(await sendtoserver("https://anawesomedeveloper.000webhostapp.com/clicandidate.txt",""));
+  var len=arr.length;
+  var i=0;
+  for(i=0;i<len;i++){
+  pc.addIceCandidate(JSON.parse(arr[i]));
+  }
+  
+  alert("Successfully added ice candidate to server");
+  chastat("Call Answered");
+  } else if(result=="n"){
+     setTimeout(checkcandidate(ser),3000);
+  }
+  
+} else if(pc==cli){
+  var result=await sendtoserver(url,"q=checksercandidate");
+   
+   if(result=="y"){
+   var arr=JSON.parse(await sendtoserver("https://anawesomedeveloper.000webhostapp.com/sercandidate.txt",""));
+   var len=arr.length;
+   var i=0;
+   
+   for(i=0;i<len;i++){
+   pc.addIceCandidate(JSON.parse(arr[i]));
+   }
+   
+   //pc.addIceCandidate(JSON.parse(await sendtoserver("https://anawesomedeveloper.000webhostapp.com/sercandidate.txt","")));
+   alert("Successfully added icecandidate to client");
+   chastat("call answered");
+   } else if(result=="n"){
+    setTimeout(checkcandidate(cli),3000);
+   }
+
+}
+}
+
+function chastat(s){
+myp.innerHTML=s;
+}
+
+function chvid(){
+    if(constraints.video.facingMode=="user"){
+        constraints.video.facingMode="environment";
+        mylocal.style.transform="rotateY(0deg)";
+    } else {
+        constraints.video.facingMode="user";
+mylocal.style.transform="rotateY(180deg)";
+    }
+    
+    return navigator.mediaDevices.getUserMedia(constraints);
+    
+}
+
+</script>
+
+</body>
+</html>
